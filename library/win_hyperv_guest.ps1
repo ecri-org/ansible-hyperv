@@ -125,7 +125,7 @@ Function VM-Create {
 }
 
 Function VM-Delete {
-  $CheckVM = Get-VM -name $name -ErrorAction SilentlyContinue
+  $CheckVM = VM-Get
 
   if ($CheckVM) {
     $cmd="Remove-VM -Name $name -Force"
@@ -136,24 +136,40 @@ Function VM-Delete {
   }
 }
 
-Function VM-Start {
-  $CheckVM = Get-VM -name $name -ErrorAction SilentlyContinue
-
-  if ($CheckVM) {
-    if($CheckVM.state -Match "Running") {
-      $result.vm = VM-GetSummary($CheckVM)
-      $result.changed = $false
-    } else {
-      $cmd="Start-VM -Name $name"
-      $results = invoke-expression $cmd
-      $result.changed = $true
-      # Get the updated result
-      $CheckVM = Get-VM -name $name -ErrorAction SilentlyContinue
-      $result.vm = VM-GetSummary($CheckVM)
-    }
-  } else {
-    Fail-Json $result "The VM: $name; Doesn't exists please create the VM first"
+Function VM-Get {
+  $cmd = "Get-VM -name $name -ErrorAction SilentlyContinue"
+  if ($hostserver) {
+    $cmd += " -ComputerName $hostserver"
   }
+
+  $vm = invoke-expression $cmd
+  return $vm
+}
+
+Function VM-Start {
+  $CheckVM = VM-Get
+
+  if(! $CheckVM) {
+    Fail-Json $result "The VM: $name; Doesn't exists please create the VM first"
+    return
+  }
+
+  if($CheckVM.state -Match "Running") {
+    $result.vm = VM-GetSummary($CheckVM)
+    $result.changed = $false
+    return
+  }
+
+  $cmd = "Start-VM -Name $name"
+  if ($hostserver) {
+    $cmd += " -ComputerName $hostserver"
+  }
+
+  $results = invoke-expression $cmd
+  $result.changed = $true
+  # Get the updated result
+  $CheckVM = VM-Get
+  $result.vm = VM-GetSummary($CheckVM)
 }
 
 Function VM-GetSummary($vm) {
@@ -188,8 +204,8 @@ Function VM-GetNetworkAdapterSummary($adapter) {
 }
 
 Function VM-Poweroff {
-  $CheckVM = Get-VM -name $name -ErrorAction SilentlyContinue
-  $ignore_existence = Get-Attr -obj $params -name ignore_existence -default "true" | ConvertTo-Bool
+  $CheckVM = VM-Get
+  $ignore_existence = Get-Attr -obj $params -name ignore_existence -default "false" | ConvertTo-Bool
 
   if (! $CheckVM) {
     $result.changed = $false
@@ -202,15 +218,21 @@ Function VM-Poweroff {
   }
 
   $cmd="Stop-VM -Name $name -TurnOff"
+  if ($hostserver) {
+    $cmd += " -ComputerName $hostserver"
+  }
   $results = invoke-expression $cmd
   $result.changed = $true
 }
 
 Function VM-Shutdown {
-$CheckVM = Get-VM -name $name -ErrorAction SilentlyContinue
+$CheckVM = VM-Get
 
   if ($CheckVM) {
     $cmd="Stop-VM -Name $name"
+    if ($hostserver) {
+      $cmd += " -ComputerName $hostserver"
+    }
     $results = invoke-expression $cmd
     $result.changed = $true
   } else {
