@@ -59,6 +59,20 @@ EXAMPLES = '''
     name: TestCheckpoint
     vm_name: MyVM
     hostserver: HyperV1
+
+  # Remove a VM checkpoint for MyVM which is hosted by HyperV1
+  win_hyperv_checkpoint:
+    name: TestCheckpoint
+    vm_name: MyVM
+    state: absent
+    hostserver: HyperV1
+
+  # Restore a VM checkpoint for MyVM which is hosted by HyperV1
+  win_hyperv_checkpoint:
+    name: TestCheckpoint
+    vm_name: MyVM
+    state: restored
+    hostserver: HyperV1
 '''
 
 ANSIBLE_METADATA = {

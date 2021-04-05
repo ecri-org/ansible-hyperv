@@ -28,7 +28,7 @@ $vmName = Get-Attr -obj $params -name vm_name -failifempty $true -emptyattribute
 $hostserver = Get-Attr -obj $params -name hostserver
 $state = Get-Attr -obj $params -name state -default "present"
 
-if ("present","absent" -notcontains $state) {
+if ("present","absent","restored" -notcontains $state) {
   Fail-Json $result "The state: $state doesn't exist; State can only be: present, or absent"
 }
 
@@ -113,6 +113,30 @@ Function Checkpoint-Create {
   }
 }
 
+Function Checkpoint-Restore {
+  $existing = Checkpoint-GetExisting
+
+  if(! $existing) {
+    Fail-Json("Checkpoint doesn't exist")
+    return
+  }
+
+  $cmd = "Restore-VMSnapshot -VMName $vmName -Name $name -Confirm:`$false"
+  if ($hostserver) {
+    $cmd += " -ComputerName $hostserver"
+  }
+
+  $results = Invoke-Expression $cmd
+
+  if($?) {
+    $result.changed = $true
+    $result.checkpoint = Checkpoint-GetSummary $existing
+  } 
+  else {
+    Fail-Json("Failed to restore checkpoint", $results)
+  }
+}
+
 Function Checkpoint-Delete {
   $existing = Checkpoint-GetExisting
 
@@ -140,6 +164,7 @@ Try {
   switch ($state) {
     "present" {Checkpoint-Create}
     "absent" {Checkpoint-Delete}
+    "restored" {Checkpoint-Restore}
   }
 
   Exit-Json $result;
